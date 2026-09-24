@@ -48,6 +48,9 @@
   #include "platform/common.h"
   #include "platform/linux/misc.h"
 #endif
+#ifdef _WIN32
+  #include "platform/windows/privacy_overlay.h"
+#endif
 
 using namespace std::literals;
 
@@ -91,6 +94,9 @@ std::map<std::string_view, std::function<int(const char *name, int argc, char **
 #ifdef _WIN32
   {"restore-nvprefs-undo"sv, [](const char *name, int argc, char **argv) {
      return args::restore_nvprefs_undo();
+   }},
+  {"restore-privacy-cursor"sv, [](const char *, int, char **) {
+     return platf::privacy_overlay::restore_cursors() ? 0 : 1;
    }},
 #endif
 };
@@ -289,6 +295,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef _WIN32
   config::select_all_gamepad_drivers_if_licensed(lvh::get_license_status().license.licensed());
+  // A prior Sunshine crash may have left the common system cursors black.
+  platf::privacy_overlay::restore_cursors();
 #endif
 
   // Adding guard here first as it also performs recovery after crash,

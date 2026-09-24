@@ -78,7 +78,7 @@ set(PROJECT_DAY "01")
 
 # Extract year, month, and day (do this AFTER version parsing)
 # Note: Cmake doesn't support "{}" regex syntax
-if(PROJECT_VERSION MATCHES "^([0-9][0-9][0-9][0-9])\\.([0-9][0-9][0-9][0-9]?)\\.([0-9]+)$")
+if(PROJECT_VERSION MATCHES "^([0-9][0-9][0-9][0-9])\\.([0-9][0-9][0-9][0-9]?)\\.([0-9]+)(-dukeNashor\\.[0-9]+)?$")
     message("Extracting year and month/day from PROJECT_VERSION: ${PROJECT_VERSION}")
     # First capture group is the year
     set(PROJECT_YEAR "${CMAKE_MATCH_1}")

@@ -37,6 +37,10 @@ extern "C" {
 #include "thread_safe.h"
 #include "utility.h"
 
+#ifdef _WIN32
+  #include "platform/windows/privacy_overlay.h"
+#endif
+
 constexpr int IDX_START_A = 0;  ///< Control-stream message index for the first stream-start packet.
 constexpr int IDX_START_B = 1;  ///< Control-stream message index for the second stream-start packet.
 constexpr int IDX_INVALIDATE_REF_FRAMES = 2;  ///< Control-stream message index for invalidate ref frames.
@@ -551,6 +555,7 @@ namespace stream {
     } control;  ///< Runtime state for the encrypted GameStream control channel.
 
     std::uint32_t launch_session_id;  ///< RTSP launch-session ID associated with this stream.
+    bool privacy_overlay {};  ///< Whether this session covers the host displays.
     std::string client_cert;  ///< PEM certificate for the paired client owning the stream.
     std::string input_session_id;  ///< Stable client identity used to retain input devices across resume.
 
@@ -2238,6 +2243,9 @@ namespace stream {
 
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
+#ifdef _WIN32
+        platf::privacy_overlay::stop();
+#endif
         bool revert_display_config {config::video.dd.config_revert_on_disconnect};
         if (proc::proc.running()) {
 #if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
@@ -2273,12 +2281,6 @@ namespace stream {
       session.control.expected_peer_address = addr_string;
       BOOST_LOG(debug) << "Expecting incoming session connections from "sv << addr_string;
 
-      // Insert this session into the session list
-      {
-        auto lg = session.broadcast_ref->control_server._sessions.lock();
-        session.broadcast_ref->control_server._sessions->push_back(&session);
-      }
-
       auto addr = boost::asio::ip::make_address(addr_string);
       session.video.peer.address(addr);
       session.video.peer.port(0);
@@ -2287,6 +2289,27 @@ namespace stream {
       session.audio.peer.port(0);
 
       session.pingTimeout = std::chrono::steady_clock::now() + config::stream.ping_timeout;
+
+#ifdef _WIN32
+      // Cover the host before either worker can capture its first video frame.
+      if (session.privacy_overlay) {
+        const auto stop_if_coverage_is_lost = []() {
+          task_pool.push([]() {
+            rtsp_stream::terminate_sessions();
+          });
+        };
+        if (config::video.capture == "wgc" || !platf::privacy_overlay::start(stop_if_coverage_is_lost)) {
+          BOOST_LOG(error) << "Privacy overlay could not be enabled; refusing the streaming session"sv;
+          return -1;
+        }
+      }
+#endif
+
+      // Insert only after startup checks that can reject this session.
+      {
+        auto lg = session.broadcast_ref->control_server._sessions.lock();
+        session.broadcast_ref->control_server._sessions->push_back(&session);
+      }
 
       session.audioThread = std::jthread {audioThread, &session};
       session.videoThread = std::jthread {videoThread, &session};
@@ -2314,6 +2337,7 @@ namespace stream {
 
       session->shutdown_event = mail->event<bool>(mail::shutdown);
       session->launch_session_id = launch_session.id;
+      session->privacy_overlay = launch_session.privacy_overlay;
       session->client_cert = launch_session.client_cert;
       session->input_session_id = launch_session.client_cert.empty() ? launch_session.unique_id : launch_session.client_cert;
 

@@ -2,6 +2,11 @@
 # see options at: https://cmake.org/cmake/help/latest/cpack_gen/nsis.html
 
 set(CPACK_NSIS_INSTALLED_ICON_NAME "${PROJECT__DIR}\\\\${PROJECT_EXE}")
+set(CPACK_PACKAGE_VENDOR "dukeNashor")
+set(CPACK_PACKAGE_FILE_NAME "Sunshine-${PROJECT_VERSION}-PrivacyOverlay-Windows-x64-Setup")
+set(CPACK_NSIS_DISPLAY_NAME "Sunshine Privacy Overlay")
+set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+set(CPACK_MONOLITHIC_INSTALL ON)
 
 # Enable detailed logging only on AMD64
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
@@ -12,6 +17,11 @@ endif()
 
 # Extra install commands
 # Runs the main setup script which handles all installation tasks
+file(READ "${CMAKE_CURRENT_LIST_DIR}/windows_nsis_msi_upgrade.nsh" SUNSHINE_MSI_UPGRADE_COMMANDS)
+string(REPLACE "\\" "\\\\" SUNSHINE_MSI_UPGRADE_COMMANDS "${SUNSHINE_MSI_UPGRADE_COMMANDS}")
+string(REPLACE "\"" "\\\"" SUNSHINE_MSI_UPGRADE_COMMANDS "${SUNSHINE_MSI_UPGRADE_COMMANDS}")
+set(CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS "${CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS}\n${SUNSHINE_MSI_UPGRADE_COMMANDS}")
+
 SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
         "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}
         ${NSIS_LOGSET_COMMAND}

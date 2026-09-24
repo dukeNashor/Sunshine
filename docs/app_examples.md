@@ -352,6 +352,38 @@ third-party tool, you can use *QRes* as an example.
 > host, the Flatpak of Sunshine requires commands to be prefixed with `flatpak-spawn --host`.
 
 #### Windows
+
+**Local privacy overlay (Windows)**
+
+For a separate Moonlight entry, add an application named `Privacy Desktop` with no command and enable
+**Black out local displays while streaming**. In `apps.json`, the entry is:
+
+```json
+{
+  "name": "Privacy Desktop",
+  "privacy-overlay": true
+}
+```
+
+Sunshine creates black, click-through windows on every active local display before video capture starts. Windows
+excludes those windows from the captured stream, so Moonlight continues to see the desktop beneath them. While
+the overlay runs, common Windows system cursor shapes become one-pixel black cursors, and newly shown popup
+windows trigger an attempt to bring the black covers back to the top. The user's saved cursor scheme is reloaded
+when the overlay stops and when Sunshine next starts. If a crash leaves the cursor difficult to see, run
+`sunshine.exe --restore-privacy-cursor` from a terminal in the Sunshine installation directory.
+
+If a cover cannot be shown or excluded from capture, or a system cursor cannot be replaced, the RTSP session is
+rejected. The covers are removed after the last streaming session ends and recreated when a disconnected session
+resumes. This option requires Windows 10 version 2004 or later and DirectX Desktop Duplication capture; it rejects
+an explicitly selected WGC capture method. If a display change cannot be covered, Sunshine ends the streaming
+sessions.
+
+The monitors remain powered on. Popup handling is asynchronous, so a popup may be briefly visible. Custom
+application cursors may still appear; the replacement system cursors may also be hard to see in Moonlight. Secure
+desktop prompts, lock screens, exclusive fullscreen applications, and other system-level windows can appear above
+the overlay. This is a visual privacy convenience, not a guarantee that every local image is hidden. Check the
+physical displays and the Moonlight stream when first using it.
+
 **Elevating Commands (Windows)**
 
 If you've installed Sunshine as a service (default), you can specify if a command should be elevated with

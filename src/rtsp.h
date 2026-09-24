@@ -33,6 +33,7 @@ namespace rtsp_stream {
     int fps;  ///< Requested video frame rate.
     int gcmap;  ///< Game controller mapping requested by the client.
     int appid;  ///< Application ID requested for launch or resume.
+    bool privacy_overlay {};  ///< Cover local displays while this application streams.
     int surround_info;  ///< Encoded GameStream surround-sound capability flags.
     std::string surround_params;  ///< Client-provided surround-sound layout parameters.
     bool continuous_audio;  ///< Whether audio packets continue during silence.

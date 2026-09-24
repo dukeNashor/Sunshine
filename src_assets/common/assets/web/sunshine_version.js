@@ -23,11 +23,8 @@ class SunshineVersion {
     if (!version) {
       return null;
     }
-    let v = version;
-    if (v.indexOf("v") === 0) {
-      v = v.substring(1);
-    }
-    return v.split('.').map(Number);
+    const match = /^(?:privacy-overlay-v|v)?(\d+)\.(\d+)\.(\d+)(?:-dukeNashor\.(\d+))?$/.exec(version);
+    return match ? match.slice(1).map((part) => Number(part || 0)) : null;
   }
 
   isGreater(otherVersion) {
@@ -43,7 +40,7 @@ class SunshineVersion {
     if (!this.versionParts || !otherVersionParts) {
       return false;
     }
-    for (let i = 0; i < Math.min(3, this.versionParts.length, otherVersionParts.length); i++) {
+    for (let i = 0; i < this.versionParts.length; i++) {
       if (this.versionParts[i] !== otherVersionParts[i]) {
         return this.versionParts[i] > otherVersionParts[i];
       }

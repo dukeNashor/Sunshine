@@ -1,5 +1,6 @@
 # windows specific packaging
 install(TARGETS sunshine RUNTIME DESTINATION "." COMPONENT application)
+install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "." COMPONENT application)
 
 # Hardening: include zlib1.dll (loaded via LoadLibrary() in openssl's libcrypto.a)
 install(FILES "${ZLIB}" DESTINATION "." COMPONENT application)
@@ -100,4 +101,7 @@ set(CPACK_COMPONENT_FIREWALL_GROUP "Scripts")
 
 # include specific packaging
 include(${CMAKE_MODULE_PATH}/packaging/windows_nsis.cmake)
-include(${CMAKE_MODULE_PATH}/packaging/windows_wix.cmake)
+option(SUNSHINE_ENABLE_WIX "Configure the optional Windows MSI package" OFF)
+if(SUNSHINE_ENABLE_WIX)
+    include(${CMAKE_MODULE_PATH}/packaging/windows_wix.cmake)
+endif()

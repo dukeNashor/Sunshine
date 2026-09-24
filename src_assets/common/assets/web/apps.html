@@ -296,6 +296,14 @@
                       v-model="editForm['wait-all']"
                       default="true"
             ></Checkbox>
+            <Checkbox v-if="platform === 'windows'"
+                      class="mb-3"
+                      id="privacyOverlay"
+                      label="apps.privacy_overlay"
+                      desc="apps.privacy_overlay_desc"
+                      v-model="editForm['privacy-overlay']"
+                      default="false"
+            ></Checkbox>
             <!-- exit timeout -->
             <div class="mb-3">
               <label for="exitTimeout" class="form-label">{{ $t('apps.exit_timeout') }}</label>
@@ -569,7 +577,6 @@
   import Navbar from './Navbar.vue'
   import Checkbox from './Checkbox.vue'
   import { apiFetch } from './fetch_utils'
-  import SunshineVersion from './sunshine_version'
   import { Modal } from 'bootstrap/dist/js/bootstrap'
   import {
     ArrowDown,
@@ -644,20 +651,11 @@
         searchQuery: "",
         sortMode: "default",
         deleteTarget: null,
-        version: null,
-        githubVersion: null,
       };
     },
     computed: {
-      installedVersionNotStable() {
-        if (!this.githubVersion || !this.version) {
-          return false;
-        }
-        return this.version.isGreater(this.githubVersion);
-      },
       documentationBaseUrl() {
-        const docsVersion = this.installedVersionNotStable ? 'master' : 'latest'
-        return `https://docs.lizardbyte.dev/projects/sunshine/${docsVersion}`
+        return 'https://docs.lizardbyte.dev/projects/sunshine/latest'
       },
       displayedApps() {
         let list = this.apps.map((app, index) => ({ app, index }));
@@ -721,13 +719,7 @@
         .then(r => r.json())
         .then(r => {
           this.platform = r.platform;
-          this.version = new SunshineVersion(null, r.version);
         });
-
-      fetch("https://api.github.com/repos/LizardByte/Sunshine/releases/latest")
-        .then((r) => r.json())
-        .then((r) => this.githubVersion = new SunshineVersion(r, null))
-        .catch((e) => console.error(e));
     },
     methods: {
       newApp() {
@@ -740,6 +732,7 @@
           elevated: false,
           "auto-detach": true,
           "wait-all": true,
+          "privacy-overlay": false,
           "exit-timeout": 5,
           "prep-cmd": [],
           detached: [],
@@ -764,6 +757,9 @@
         }
         if (this.editForm["wait-all"] === undefined) {
           this.editForm["wait-all"] = true;
+        }
+        if (this.editForm["privacy-overlay"] === undefined) {
+          this.editForm["privacy-overlay"] = false;
         }
         if (this.editForm["exit-timeout"] === undefined) {
           this.editForm["exit-timeout"] = 5;

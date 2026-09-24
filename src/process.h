@@ -80,6 +80,7 @@ namespace proc {
     bool elevated;  ///< Whether the process should be launched elevated.
     bool auto_detach;  ///< Whether the process should detach automatically.
     bool wait_all;  ///< Whether Sunshine waits for all child processes.
+    bool privacy_overlay {};  ///< Whether streaming this application covers local displays.
     std::chrono::seconds exit_timeout;  ///< Exit timeout.
   };
 
@@ -118,6 +119,9 @@ namespace proc {
      * @return `_app_id` if a process is running, otherwise returns `0`
      */
     int running();
+
+    /** @brief Check whether an application requires the local privacy overlay. */
+    bool privacy_overlay_enabled(int app_id) const;
 
     ~proc_t();
 

@@ -319,6 +319,13 @@ namespace proc {
     return 0;
   }
 
+  bool proc_t::privacy_overlay_enabled(int app_id) const {
+    const auto app = std::find_if(_apps.begin(), _apps.end(), [app_id](const auto &candidate) {
+      return candidate.id == std::to_string(app_id);
+    });
+    return app != _apps.end() && app->privacy_overlay;
+  }
+
   void proc_t::terminate() {
     input::terminate_gamepads();
     std::error_code ec;
@@ -696,6 +703,7 @@ namespace proc {
         auto elevated = app_node.get_optional<bool>("elevated"s);
         auto auto_detach = app_node.get_optional<bool>("auto-detach"s);
         auto wait_all = app_node.get_optional<bool>("wait-all"s);
+        auto privacy_overlay = app_node.get_optional<bool>("privacy-overlay"s);
         auto exit_timeout = app_node.get_optional<int>("exit-timeout"s);
 
         std::vector<proc::cmd_t> prep_cmds;
@@ -765,6 +773,7 @@ namespace proc {
         ctx.elevated = elevated.value_or(false);
         ctx.auto_detach = auto_detach.value_or(true);
         ctx.wait_all = wait_all.value_or(true);
+        ctx.privacy_overlay = privacy_overlay.value_or(false);
         ctx.exit_timeout = std::chrono::seconds {exit_timeout.value_or(5)};
 
         auto possible_ids = calculate_app_id(name, ctx.image_path, i++);

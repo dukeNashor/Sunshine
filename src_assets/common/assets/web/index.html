@@ -63,55 +63,30 @@
           {{ $t('index.version_dirty') }} 🌇
         </div>
 
-        <div class="alert alert-info my-3" v-if="installedVersionNotStable">
-          <info :size="18" class="icon"></info>
-          {{ $t('index.installed_version_not_stable') }}
-        </div>
-
-        <div v-else-if="(!preReleaseBuildAvailable || !notifyPreReleases) && !stableBuildAvailable && !buildVersionIsDirty">
+        <div v-if="!forkBuildAvailable && !buildVersionIsDirty && updateCheckComplete">
           <div class="alert alert-success my-3">
             <check-circle :size="18" class="icon"></check-circle>
             {{ $t('index.version_latest') }}
           </div>
         </div>
 
-        <div v-if="notifyPreReleases && preReleaseBuildAvailable">
+        <div v-if="forkBuildAvailable">
           <div class="alert alert-warning my-3">
             <!-- header row -->
             <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
               <div class="d-flex align-items-center gap-3 flex-wrap">
                 <alert-circle :size="18" class="icon"></alert-circle>
-                <span>{{ $t('index.new_pre_release') }}</span>
-                <h5 class="mb-0">{{ preReleaseVersion.release.name }}</h5>
+                <span>{{ $t('index.new_fork_release') }}</span>
+                <h5 class="mb-0">{{ forkVersion.release.name }}</h5>
               </div>
-              <a class="btn btn-success flex-shrink-0" :href="preReleaseVersion.release.html_url" target="_blank">
+              <a class="btn btn-success flex-shrink-0" :href="forkVersion.release.html_url" target="_blank">
                 <download :size="18" class="icon"></download>
                 {{ $t('index.download') }}
               </a>
             </div>
 
             <!-- body row (full width) -->
-            <div class="markdown-body release-notes" v-html="convertMarkdownToHtml(preReleaseVersion.release.body)"></div>
-          </div>
-        </div>
-
-        <div v-if="stableBuildAvailable">
-          <div class="alert alert-warning my-3">
-            <!-- header row -->
-            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
-              <div class="d-flex align-items-center gap-3 flex-wrap">
-                <alert-circle :size="18" class="icon"></alert-circle>
-                <span>{{ $t('index.new_stable') }}</span>
-                <h5 class="mb-0">{{ githubVersion.release.name }}</h5>
-              </div>
-              <a class="btn btn-success flex-shrink-0" :href="githubVersion.release.html_url" target="_blank">
-                <download :size="18" class="icon"></download>
-                {{ $t('index.download') }}
-              </a>
-            </div>
-
-            <!-- body row (full width) -->
-            <div class="markdown-body release-notes" v-html="convertMarkdownToHtml(githubVersion.release.body)"></div>
+            <div class="markdown-body release-notes" v-html="convertMarkdownToHtml(forkVersion.release.body)"></div>
           </div>
         </div>
       </div>
@@ -119,7 +94,7 @@
 
     <!-- Resources -->
     <div class="my-4">
-      <Resource-Card :installed-version-not-stable="installedVersionNotStable"></Resource-Card>
+      <Resource-Card></Resource-Card>
     </div>
   </div>
 </body>
@@ -170,9 +145,8 @@
     data() {
       return {
         version: null,
-        githubVersion: null,
-        notifyPreReleases: false,
-        preReleaseVersion: null,
+        forkVersion: null,
+        updateCheckComplete: false,
         loading: true,
         logs: null,
         platform: "",
@@ -186,17 +160,11 @@
     async created() {
       try {
         let config = await fetch("./api/config").then((r) => r.json());
-        this.notifyPreReleases = config.notify_pre_releases;
         this.platform = config.platform;
         this.controllerEnabled = config.controller !== "disabled";
         this.gamepadDriver = config.gamepad_driver || '';
         this.version = new SunshineVersion(null, config.version);
         console.log("Version: ", this.version.version)
-        this.githubVersion = new SunshineVersion(await fetch("https://api.github.com/repos/LizardByte/Sunshine/releases/latest").then((r) => r.json()), null);
-        console.log("GitHub Version: ", this.githubVersion.version)
-        this.preReleaseVersion = new SunshineVersion((await fetch("https://api.github.com/repos/LizardByte/Sunshine/releases").then((r) => r.json())).find(release => release.prerelease), null);
-        console.log("Pre-Release Version: ", this.preReleaseVersion.version)
-
         // The Virtual HID Driver also backs relative mouse input when controllers are disabled.
         if (this.platform === 'windows') {
           try {
@@ -212,6 +180,18 @@
             console.error("Failed to fetch Virtual HID Driver license status:", e);
           }
         }
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        const releasesResponse = await fetch("https://api.github.com/repos/dukeNashor/Sunshine/releases?per_page=30");
+        if (!releasesResponse.ok) throw new Error(`Fork release lookup failed: ${releasesResponse.status}`);
+        const releases = await releasesResponse.json();
+        this.forkVersion = releases
+          .map((release) => new SunshineVersion(release))
+          .filter((release) => release.versionParts)
+          .reduce((latest, release) => !latest || release.isGreater(latest) ? release : latest, null);
+        this.updateCheckComplete = true;
       } catch (e) {
         console.error(e);
       }
@@ -267,23 +247,8 @@
           [{ key: this.controllerEnabled ? 'index.virtualhid_optional_vigembus_desc' : 'index.virtualhid_optional_desc' }],
         );
       },
-      installedVersionNotStable() {
-        if (!this.githubVersion || !this.version) {
-          return false;
-        }
-        return this.version.isGreater(this.githubVersion);
-      },
-      stableBuildAvailable() {
-        if (!this.githubVersion || !this.version) {
-          return false;
-        }
-        return this.githubVersion.isGreater(this.version);
-      },
-      preReleaseBuildAvailable() {
-        if (!this.preReleaseVersion || !this.githubVersion || !this.version) {
-          return false;
-        }
-        return this.preReleaseVersion.isGreater(this.version) && this.preReleaseVersion.isGreater(this.githubVersion);
+      forkBuildAvailable() {
+        return !!this.forkVersion && !!this.version && this.forkVersion.isGreater(this.version);
       },
       buildVersionIsDirty() {
         return this.version.version?.split(".").length === 5 &&
