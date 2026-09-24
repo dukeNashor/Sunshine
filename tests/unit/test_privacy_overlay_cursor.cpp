@@ -58,5 +58,20 @@ namespace {
     shape.visible = false;
     EXPECT_FALSE(platf::privacy_overlay::cursor_top_left_on_output(shape, 50, 100, 200, 200).has_value());
   }
+
+  /** @brief An unreadable cursor must use a visible arrow rather than reject Privacy Desktop. */
+  TEST(PrivacyOverlayCursor, FallsBackToArrowWhenCursorCannotBeRead) {
+    const auto arrow = platf::privacy_overlay::capture_system_cursor(OCR_NORMAL);
+    ASSERT_TRUE(arrow.has_value());
+
+    constexpr DWORD unavailable_cursor = 0xffff;
+    const auto fallback = platf::privacy_overlay::capture_system_cursor(unavailable_cursor);
+    ASSERT_TRUE(fallback.has_value());
+    EXPECT_EQ(fallback->system_id, unavailable_cursor);
+    EXPECT_TRUE(fallback->fallback_to_arrow);
+    EXPECT_EQ(fallback->info.Width, arrow->info.Width);
+    EXPECT_EQ(fallback->info.Height, arrow->info.Height);
+    EXPECT_EQ(fallback->pixels, arrow->pixels);
+  }
 }  // namespace
 #endif

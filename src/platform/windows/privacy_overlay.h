@@ -19,12 +19,13 @@ namespace platf::privacy_overlay {
     std::vector<std::uint8_t> pixels;  ///< Top-down DXGI color pixels or monochrome AND/XOR masks.
     POINT screen_position {};  ///< Current pointer hotspot in virtual desktop coordinates.
     bool visible {};  ///< Whether Windows currently displays this pointer.
+    bool fallback_to_arrow {};  ///< Whether the original cursor could not be read and uses the arrow shape.
   };
 
   /**
    * @brief Read a system cursor before the local cursor scheme is blackened.
    * @param system_id Windows system cursor identifier.
-   * @return Original color shape, or no value for an unsupported cursor bitmap.
+   * @return Original shape, an arrow fallback, or no value if neither can be read.
    */
   std::optional<cursor_shape_t> capture_system_cursor(DWORD system_id);
 

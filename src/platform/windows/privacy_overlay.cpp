@@ -21,7 +21,12 @@
 #include <Windows.h>
 
 namespace platf::privacy_overlay {
-  std::optional<cursor_shape_t> capture_system_cursor(DWORD system_id) {
+  /**
+   * @brief Read one Windows cursor bitmap without substituting another shape.
+   * @param system_id Windows system cursor identifier.
+   * @return Exact cursor shape when Windows provides a supported bitmap.
+   */
+  static std::optional<cursor_shape_t> capture_system_cursor_exact(DWORD system_id) {
     auto cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(system_id));
     ICONINFO icon {};
     if (!cursor || !GetIconInfo(cursor, &icon)) {
@@ -136,6 +141,21 @@ namespace platf::privacy_overlay {
       DeleteObject(icon.hbmColor);
     }
     return captured;
+  }
+
+  std::optional<cursor_shape_t> capture_system_cursor(DWORD system_id) {
+    if (auto shape = capture_system_cursor_exact(system_id)) {
+      return shape;
+    }
+    if (system_id == OCR_NORMAL) {
+      return std::nullopt;
+    }
+    auto arrow = capture_system_cursor_exact(OCR_NORMAL);
+    if (arrow) {
+      arrow->system_id = system_id;
+      arrow->fallback_to_arrow = true;
+    }
+    return arrow;
   }
 
   namespace {
@@ -348,6 +368,9 @@ namespace platf::privacy_overlay {
             BOOST_LOG(error) << "Privacy overlay: unable to capture system cursor " << cursor_ids[i];
             shapes_ready = false;
             break;
+          }
+          if (shape->fallback_to_arrow) {
+            BOOST_LOG(warning) << "Privacy overlay: using arrow shape for unreadable system cursor " << cursor_ids[i];
           }
           cursors[i].shape = std::move(*shape);
         }
