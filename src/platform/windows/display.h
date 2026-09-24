@@ -192,10 +192,10 @@ namespace platf::dxgi {
   struct cursor_t {
     std::vector<std::uint8_t> img_data;  ///< Raw pointer-shape bytes from DXGI output duplication.
 
-    DXGI_OUTDUPL_POINTER_SHAPE_INFO shape_info;  ///< Shape info.
-    int x;  ///< X.
-    int y;  ///< Y.
-    bool visible;  ///< Whether the cursor is visible.
+    DXGI_OUTDUPL_POINTER_SHAPE_INFO shape_info {};  ///< Shape info.
+    int x {};  ///< X.
+    int y {};  ///< Y.
+    bool visible {};  ///< Whether the cursor is visible.
   };
 
   /**
@@ -277,21 +277,21 @@ namespace platf::dxgi {
     }
 
     texture2d_t texture;  ///< D3D11 texture backing the captured frame.
-    LONG texture_width;  ///< Texture width.
-    LONG texture_height;  ///< Texture height.
+    LONG texture_width {};  ///< Texture width.
+    LONG texture_height {};  ///< Texture height.
 
-    LONG topleft_x;  ///< Topleft x.
-    LONG topleft_y;  ///< Topleft y.
+    LONG topleft_x {};  ///< Topleft x.
+    LONG topleft_y {};  ///< Topleft y.
 
-    LONG display_width;  ///< Display width.
-    LONG display_height;  ///< Display height.
-    DXGI_MODE_ROTATION display_rotation;  ///< Display rotation.
+    LONG display_width {};  ///< Display width.
+    LONG display_height {};  ///< Display height.
+    DXGI_MODE_ROTATION display_rotation {};  ///< Display rotation.
 
     shader_res_t input_res;  ///< Input res.
 
     D3D11_VIEWPORT cursor_view;  ///< Cursor view.
 
-    bool visible;  ///< Whether the cursor is visible.
+    bool visible {};  ///< Whether the cursor is visible.
   };
 
   /**
@@ -698,6 +698,11 @@ namespace platf::dxgi {
 
     gpu_cursor_t cursor_alpha;  ///< Cursor alpha.
     gpu_cursor_t cursor_xor;  ///< Cursor xor.
+    gpu_cursor_t privacy_cursor_alpha;  ///< Original cursor alpha rendered only in privacy streams.
+    gpu_cursor_t privacy_cursor_xor;  ///< Original cursor invert mask rendered only in privacy streams.
+    DWORD privacy_cursor_id {};  ///< Cached original system cursor type.
+    std::uint64_t privacy_cursor_generation {};  ///< Cached privacy overlay generation.
+    bool pointer_position_known {};  ///< Whether desktop duplication supplied a pointer position.
 
     texture2d_t old_surface_delayed_destruction;  ///< Old surface delayed destruction.
     std::chrono::steady_clock::time_point old_surface_timestamp;  ///< Old surface timestamp.

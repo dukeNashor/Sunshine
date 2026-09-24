@@ -21,6 +21,7 @@ extern "C" {
 // local includes
 #include "display.h"
 #include "misc.h"
+#include "privacy_overlay.h"
 #include "src/config.h"
 #include "src/logging.h"
 #include "src/nvenc/nvenc_config.h"
@@ -1400,9 +1401,42 @@ namespace platf::dxgi {
       cursor_alpha.set_pos(frame_info.PointerPosition.Position.x, frame_info.PointerPosition.Position.y, width, height, display_rotation, frame_info.PointerPosition.Visible);
 
       cursor_xor.set_pos(frame_info.PointerPosition.Position.x, frame_info.PointerPosition.Position.y, width, height, display_rotation, frame_info.PointerPosition.Visible);
+      pointer_position_known = true;
     }
 
-    const bool blend_mouse_cursor_flag = (cursor_alpha.visible || cursor_xor.visible) && cursor_visible;
+    auto original_cursor = cursor_visible ? privacy_overlay::stream_cursor_shape() : std::nullopt;
+    if (original_cursor) {
+      if (privacy_cursor_id != original_cursor->system_id || privacy_cursor_generation != original_cursor->generation) {
+        util::buffer_t<std::uint8_t> shape_bytes {original_cursor->pixels.size()};
+        std::copy(original_cursor->pixels.begin(), original_cursor->pixels.end(), shape_bytes.begin());
+        auto shape_info = original_cursor->info;
+        auto alpha_image = make_cursor_alpha_image(shape_bytes, shape_info);
+        auto xor_image = make_cursor_xor_image(shape_bytes, shape_info);
+        if (!set_cursor_texture(device.get(), privacy_cursor_alpha, std::move(alpha_image), shape_info) ||
+            !set_cursor_texture(device.get(), privacy_cursor_xor, std::move(xor_image), shape_info)) {
+          return capture_e::error;
+        }
+        privacy_cursor_id = original_cursor->system_id;
+        privacy_cursor_generation = original_cursor->generation;
+      }
+      std::optional<POINT> position;
+      if (original_cursor->visible) {
+        if (pointer_position_known && cursor_alpha.visible) {
+          position = POINT {cursor_alpha.topleft_x - original_cursor->info.HotSpot.x,
+                            cursor_alpha.topleft_y - original_cursor->info.HotSpot.y};
+        } else {
+          const auto output_left = offset_x + GetSystemMetrics(SM_XVIRTUALSCREEN);
+          const auto output_top = offset_y + GetSystemMetrics(SM_YVIRTUALSCREEN);
+          position = privacy_overlay::cursor_top_left_on_output(*original_cursor, output_left, output_top, width, height);
+        }
+      }
+      privacy_cursor_alpha.set_pos(position ? position->x : 0, position ? position->y : 0, width, height, display_rotation, position.has_value());
+      privacy_cursor_xor.set_pos(position ? position->x : 0, position ? position->y : 0, width, height, display_rotation, position.has_value());
+    }
+
+    auto &stream_cursor_alpha = original_cursor ? privacy_cursor_alpha : cursor_alpha;
+    auto &stream_cursor_xor = original_cursor ? privacy_cursor_xor : cursor_xor;
+    const bool blend_mouse_cursor_flag = (stream_cursor_alpha.visible || stream_cursor_xor.visible) && cursor_visible;
 
     texture2d_t src {};
     if (frame_update_flag) {
@@ -1651,21 +1685,21 @@ namespace platf::dxgi {
       device_ctx->PSSetShader(cursor_ps.get(), nullptr, 0);
       device_ctx->OMSetRenderTargets(1, &d3d_img.capture_rt, nullptr);
 
-      if (cursor_alpha.texture.get()) {
+      if (stream_cursor_alpha.texture.get()) {
         // Perform an alpha blending operation
         device_ctx->OMSetBlendState(blend_alpha.get(), nullptr, 0xFFFFFFFFu);
 
-        device_ctx->PSSetShaderResources(0, 1, &cursor_alpha.input_res);
-        device_ctx->RSSetViewports(1, &cursor_alpha.cursor_view);
+        device_ctx->PSSetShaderResources(0, 1, &stream_cursor_alpha.input_res);
+        device_ctx->RSSetViewports(1, &stream_cursor_alpha.cursor_view);
         device_ctx->Draw(3, 0);
       }
 
-      if (cursor_xor.texture.get()) {
+      if (stream_cursor_xor.texture.get()) {
         // Perform an invert blending without touching alpha values
         device_ctx->OMSetBlendState(blend_invert.get(), nullptr, 0x00FFFFFFu);
 
-        device_ctx->PSSetShaderResources(0, 1, &cursor_xor.input_res);
-        device_ctx->RSSetViewports(1, &cursor_xor.cursor_view);
+        device_ctx->PSSetShaderResources(0, 1, &stream_cursor_xor.input_res);
+        device_ctx->RSSetViewports(1, &stream_cursor_xor.cursor_view);
         device_ctx->Draw(3, 0);
       }
 

@@ -13,6 +13,7 @@
 #include <array>
 #include <dwmapi.h>
 #include <mutex>
+#include <optional>
 #include <system_error>
 #include <thread>
 #include <utility>
@@ -20,6 +21,123 @@
 #include <Windows.h>
 
 namespace platf::privacy_overlay {
+  std::optional<cursor_shape_t> capture_system_cursor(DWORD system_id) {
+    auto cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(system_id));
+    ICONINFO icon {};
+    if (!cursor || !GetIconInfo(cursor, &icon)) {
+      return std::nullopt;
+    }
+
+    auto dc = GetDC(nullptr);
+    auto captured = [&]() -> std::optional<cursor_shape_t> {
+      if (!dc || !icon.hbmMask) {
+        return std::nullopt;
+      }
+
+      BITMAP bitmap {};
+      const auto color = icon.hbmColor;
+      if (GetObjectW(color ? color : icon.hbmMask, sizeof(bitmap), &bitmap) != sizeof(bitmap) ||
+          bitmap.bmWidth <= 0 || bitmap.bmWidth > 256 || bitmap.bmHeight <= 0 || bitmap.bmHeight > 512) {
+        return std::nullopt;
+      }
+
+      cursor_shape_t shape;
+      shape.system_id = system_id;
+      shape.info.Width = bitmap.bmWidth;
+      shape.info.HotSpot = {static_cast<LONG>(icon.xHotspot), static_cast<LONG>(icon.yHotspot)};
+
+      if (!color) {
+        if (bitmap.bmHeight % 2 != 0) {
+          return std::nullopt;
+        }
+        shape.info.Type = DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME;
+        shape.info.Height = bitmap.bmHeight;
+        shape.info.Pitch = ((bitmap.bmWidth + 31) / 32) * 4;
+        shape.pixels.resize(shape.info.Pitch * shape.info.Height);
+        struct {
+          BITMAPINFOHEADER header;
+          RGBQUAD colors[2];
+        } info {};
+        info.header.biSize = sizeof(BITMAPINFOHEADER);
+        info.header.biWidth = bitmap.bmWidth;
+        info.header.biHeight = -bitmap.bmHeight;
+        info.header.biPlanes = 1;
+        info.header.biBitCount = 1;
+        info.header.biCompression = BI_RGB;
+        if (GetDIBits(dc, icon.hbmMask, 0, bitmap.bmHeight, shape.pixels.data(), reinterpret_cast<BITMAPINFO *>(&info), DIB_RGB_COLORS) != bitmap.bmHeight) {
+          return std::nullopt;
+        }
+      } else {
+        shape.info.Type = DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR;
+        shape.info.Height = bitmap.bmHeight;
+        shape.info.Pitch = bitmap.bmWidth * 4;
+        shape.pixels.resize(shape.info.Pitch * shape.info.Height);
+        BITMAPINFO info {};
+        info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        info.bmiHeader.biWidth = bitmap.bmWidth;
+        info.bmiHeader.biHeight = -bitmap.bmHeight;
+        info.bmiHeader.biPlanes = 1;
+        info.bmiHeader.biBitCount = 32;
+        info.bmiHeader.biCompression = BI_RGB;
+        if (GetDIBits(dc, color, 0, bitmap.bmHeight, shape.pixels.data(), &info, DIB_RGB_COLORS) != bitmap.bmHeight) {
+          return std::nullopt;
+        }
+
+        // Older color cursors store opacity only in the separate AND mask.
+        bool has_alpha = false;
+        for (std::size_t pixel = 3; pixel < shape.pixels.size(); pixel += 4) {
+          has_alpha |= shape.pixels[pixel] != 0;
+        }
+        if (!has_alpha) {
+          BITMAP mask_bitmap {};
+          if (GetObjectW(icon.hbmMask, sizeof(mask_bitmap), &mask_bitmap) != sizeof(mask_bitmap) ||
+              mask_bitmap.bmWidth != bitmap.bmWidth || mask_bitmap.bmHeight != bitmap.bmHeight) {
+            return std::nullopt;
+          }
+          const auto mask_pitch = ((bitmap.bmWidth + 31) / 32) * 4;
+          std::vector<std::uint8_t> mask(mask_pitch * bitmap.bmHeight);
+          struct {
+            BITMAPINFOHEADER header;
+            RGBQUAD colors[2];
+          } mask_info {};
+          mask_info.header.biSize = sizeof(BITMAPINFOHEADER);
+          mask_info.header.biWidth = bitmap.bmWidth;
+          mask_info.header.biHeight = -bitmap.bmHeight;
+          mask_info.header.biPlanes = 1;
+          mask_info.header.biBitCount = 1;
+          mask_info.header.biCompression = BI_RGB;
+          if (GetDIBits(dc, icon.hbmMask, 0, bitmap.bmHeight, mask.data(), reinterpret_cast<BITMAPINFO *>(&mask_info), DIB_RGB_COLORS) != bitmap.bmHeight) {
+            return std::nullopt;
+          }
+          for (int y = 0; y < bitmap.bmHeight; ++y) {
+            for (int x = 0; x < bitmap.bmWidth; ++x) {
+              if (!(mask[y * mask_pitch + x / 8] & (0x80 >> (x % 8)))) {
+                shape.pixels[y * shape.info.Pitch + x * 4 + 3] = 0xff;
+              }
+            }
+          }
+        }
+        bool visible_pixel = false;
+        for (std::size_t pixel = 3; pixel < shape.pixels.size(); pixel += 4) {
+          visible_pixel |= shape.pixels[pixel] != 0;
+        }
+        if (!visible_pixel) {
+          return std::nullopt;
+        }
+      }
+      return shape;
+    }();
+
+    if (dc) {
+      ReleaseDC(nullptr, dc);
+    }
+    DeleteObject(icon.hbmMask);
+    if (icon.hbmColor) {
+      DeleteObject(icon.hbmColor);
+    }
+    return captured;
+  }
+
   namespace {
     constexpr wchar_t window_class[] = L"SunshinePrivacyOverlay";  ///< Private window class for local covers.
     constexpr UINT refresh_message = WM_APP + 1;  ///< Message used to rebuild windows after display changes.
@@ -58,6 +176,12 @@ namespace platf::privacy_overlay {
       PostThreadMessageW(GetCurrentThreadId(), reassert_message, 0, 0);
     }
 
+    /** @brief Original cursor shape and the corresponding blackened system handle. */
+    struct saved_cursor_t {
+      HCURSOR handle {};  ///< System cursor handle after replacement.
+      cursor_shape_t shape;  ///< Shape captured before replacement.
+    };
+
     /** @brief Synchronizes synchronous startup with the window message thread. */
     struct state_t {
       std::mutex mutex;
@@ -66,6 +190,8 @@ namespace platf::privacy_overlay {
       DWORD worker_id {};
       bool startup_complete {};
       bool startup_success {};
+      std::uint64_t generation {};
+      std::array<saved_cursor_t, cursor_ids.size()> cursors;
       std::function<void()> coverage_lost;
     } state;  ///< Current overlay thread state.
 
@@ -213,10 +339,40 @@ namespace platf::privacy_overlay {
                                                       0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS) : nullptr;
       auto menu_hook = show_hook ? SetWinEventHook(EVENT_SYSTEM_MENUPOPUPSTART, EVENT_SYSTEM_MENUPOPUPSTART, nullptr,
                                                   on_window_event, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS) : nullptr;
-      const bool success = covers_ready && show_hook && menu_hook && blacken_cursors();
+      std::array<saved_cursor_t, cursor_ids.size()> cursors;
+      bool shapes_ready = covers_ready && show_hook && menu_hook;
+      if (shapes_ready) {
+        for (std::size_t i = 0; i < cursor_ids.size(); ++i) {
+          auto shape = capture_system_cursor(cursor_ids[i]);
+          if (!shape) {
+            BOOST_LOG(error) << "Privacy overlay: unable to capture system cursor " << cursor_ids[i];
+            shapes_ready = false;
+            break;
+          }
+          cursors[i].shape = std::move(*shape);
+        }
+      }
+      bool success = shapes_ready && blacken_cursors();
+      if (success) {
+        for (std::size_t i = 0; i < cursor_ids.size(); ++i) {
+          cursors[i].handle = LoadCursorW(nullptr, MAKEINTRESOURCEW(cursor_ids[i]));
+          if (!cursors[i].handle) {
+            BOOST_LOG(error) << "Privacy overlay: unable to identify blackened system cursor " << cursor_ids[i];
+            success = false;
+            break;
+          }
+        }
+      }
       {
         std::lock_guard lock(state.mutex);
         state.worker_id = GetCurrentThreadId();
+        if (success) {
+          ++state.generation;
+          for (auto &saved : cursors) {
+            saved.shape.generation = state.generation;
+          }
+          state.cursors = std::move(cursors);
+        }
         state.startup_success = success;
         state.startup_complete = true;
       }
@@ -313,5 +469,34 @@ namespace platf::privacy_overlay {
       BOOST_LOG(error) << "Privacy overlay: unable to restore system cursors: " << GetLastError();
     }
     return restored;
+  }
+
+  std::optional<cursor_shape_t> stream_cursor_shape() {
+    CURSORINFO current {sizeof(current)};
+    if (!GetCursorInfo(&current)) {
+      return std::nullopt;
+    }
+    std::lock_guard lock(state.mutex);
+    if (!state.startup_success) {
+      return std::nullopt;
+    }
+    for (const auto &saved : state.cursors) {
+      if (current.hCursor == saved.handle) {
+        auto shape = saved.shape;
+        shape.screen_position = current.ptScreenPos;
+        shape.visible = (current.flags & CURSOR_SHOWING) != 0;
+        return shape;
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::optional<POINT> cursor_top_left_on_output(const cursor_shape_t &shape, LONG output_left, LONG output_top, LONG width, LONG height) {
+    const auto x = static_cast<std::int64_t>(shape.screen_position.x) - output_left;
+    const auto y = static_cast<std::int64_t>(shape.screen_position.y) - output_top;
+    if (!shape.visible || x < 0 || y < 0 || x >= width || y >= height) {
+      return std::nullopt;
+    }
+    return POINT {static_cast<LONG>(x - shape.info.HotSpot.x), static_cast<LONG>(y - shape.info.HotSpot.y)};
   }
 }  // namespace platf::privacy_overlay

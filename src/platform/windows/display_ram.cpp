@@ -5,6 +5,7 @@
 // local includes
 #include "display.h"
 #include "misc.h"
+#include "privacy_overlay.h"
 #include "src/logging.h"
 
 namespace platf {
@@ -341,8 +342,25 @@ namespace platf::dxgi {
       img_info.pData = nullptr;
     }
 
-    if (cursor_visible && cursor.visible) {
-      blend_cursor(cursor, *img);
+    if (cursor_visible) {
+      if (auto original = privacy_overlay::stream_cursor_shape()) {
+        if (original->visible) {
+          const auto output_left = offset_x + GetSystemMetrics(SM_XVIRTUALSCREEN);
+          const auto output_top = offset_y + GetSystemMetrics(SM_YVIRTUALSCREEN);
+          auto position = cursor.visible ? std::optional<POINT> {POINT {cursor.x - original->info.HotSpot.x, cursor.y - original->info.HotSpot.y}} :
+                                           privacy_overlay::cursor_top_left_on_output(*original, output_left, output_top, width, height);
+          if (position) {
+            cursor_t stream_cursor = cursor;
+            stream_cursor.img_data = std::move(original->pixels);
+            stream_cursor.shape_info = original->info;
+            stream_cursor.x = position->x;
+            stream_cursor.y = position->y;
+            blend_cursor(stream_cursor, *img);
+          }
+        }
+      } else if (cursor.visible) {
+        blend_cursor(cursor, *img);
+      }
     }
 
     if (img) {
