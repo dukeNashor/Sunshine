@@ -30,6 +30,7 @@ namespace rtsp_stream {
     int fps;
     int gcmap;
     int appid;
+    bool privacy_overlay {};  ///< Cover local displays while this application streams.
     int surround_info;
     std::string surround_params;
     bool continuous_audio;

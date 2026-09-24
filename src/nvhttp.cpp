@@ -911,6 +911,7 @@ namespace nvhttp {
         return;
       }
     }
+    launch_session->privacy_overlay = proc::proc.privacy_overlay_enabled((int) appid);
 
     tree.put("root.<xmlattr>.status_code", 200);
     tree.put(
@@ -975,6 +976,7 @@ namespace nvhttp {
       host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
     }
     const auto launch_session = make_launch_session(host_audio, args);
+    launch_session->privacy_overlay = proc::proc.privacy_overlay_enabled(current_appid);
 
     if (no_active_sessions) {
       // We want to prepare display only if there are no active sessions at

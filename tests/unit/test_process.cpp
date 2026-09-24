@@ -270,3 +270,20 @@ TEST_F(ProcessPNGTest, ValidateAppImagePath_OldSteamDefault) {
   const std::string result = proc::validate_app_image_path("./assets/steam.png");
   EXPECT_EQ(result, SUNSHINE_ASSETS_DIR "/steam.png");
 }
+
+TEST_F(ProcessPNGTest, PrivacyOverlayIsPerApplication) {
+  const fs::path apps_file = test_dir / "apps.json";
+  {
+    std::ofstream file(apps_file);
+    file << R"({"env":{},"apps":[{"name":"Privacy Desktop","privacy-overlay":true},{"name":"Desktop"}]})";
+  }
+
+  auto applications = proc::parse(apps_file.string());
+  ASSERT_TRUE(applications.has_value());
+  ASSERT_EQ(applications->get_apps().size(), 2);
+
+  const auto &apps = applications->get_apps();
+  EXPECT_TRUE(applications->privacy_overlay_enabled(std::stoi(apps[0].id)));
+  EXPECT_FALSE(applications->privacy_overlay_enabled(std::stoi(apps[1].id)));
+  EXPECT_FALSE(applications->privacy_overlay_enabled(0));
+}

@@ -66,6 +66,7 @@ namespace proc {
     bool elevated;
     bool auto_detach;
     bool wait_all;
+    bool privacy_overlay {};
     std::chrono::seconds exit_timeout;
   };
 
@@ -88,6 +89,12 @@ namespace proc {
      * @return `_app_id` if a process is running, otherwise returns `0`
      */
     int running();
+    /**
+     * @brief Check whether an application requires a local privacy overlay.
+     * @param app_id ID of the application to check.
+     * @return True when the application enables the overlay.
+     */
+    bool privacy_overlay_enabled(int app_id) const;
 
     ~proc_t();
 

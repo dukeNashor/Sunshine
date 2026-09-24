@@ -92,6 +92,14 @@
                   default="true"
                   inverse-values
         ></Checkbox>
+        <Checkbox v-if="platform === 'windows'"
+                  class="mb-3"
+                  id="privacyOverlay"
+                  label="apps.privacy_overlay"
+                  desc="apps.privacy_overlay_desc"
+                  v-model="editForm['privacy-overlay']"
+                  default="false"
+        ></Checkbox>
         <div class="mb-3">
           <label for="appName" class="form-label">{{ $t('apps.cmd_prep_name') }}</label>
           <div class="form-text">{{ $t('apps.cmd_prep_desc') }}</div>
@@ -573,6 +581,7 @@
           elevated: false,
           "auto-detach": true,
           "wait-all": true,
+          "privacy-overlay": false,
           "exit-timeout": 5,
           "prep-cmd": [],
           detached: [],
@@ -598,6 +607,9 @@
         }
         if (this.editForm["wait-all"] === undefined) {
           this.editForm["wait-all"] = true;
+        }
+        if (this.editForm["privacy-overlay"] === undefined) {
+          this.editForm["privacy-overlay"] = false;
         }
         if (this.editForm["exit-timeout"] === undefined) {
           this.editForm["exit-timeout"] = 5;

@@ -84,6 +84,8 @@
     "no_covers_found": "No covers found",
     "output_desc": "The file where the output of the command is stored, if it is not specified, the output is ignored",
     "output_name": "Output",
+    "privacy_overlay": "Black out local displays while streaming",
+    "privacy_overlay_desc": "Windows only. Cover every active local display with black windows excluded from capture. The displays remain powered on. The stream is rejected if the cover cannot be prepared.",
     "run_as_desc": "This can be necessary for some applications that require administrator permissions to run properly.",
     "searching_covers": "Searching for covers...",
     "wait_all": "Continue streaming until all app processes exit",

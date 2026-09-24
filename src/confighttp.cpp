@@ -609,7 +609,8 @@ namespace confighttp {
         "exclude-global-prep-cmd",
         "elevated",
         "auto-detach",
-        "wait-all"
+        "wait-all",
+        "privacy-overlay"
       };
 
       // List of keys to convert to integers
@@ -660,6 +661,7 @@ namespace confighttp {
    *   "elevated": false,
    *   "auto-detach": true,
    *   "wait-all": true,
+   *   "privacy-overlay": false,
    *   "exit-timeout": 5,
    *   "prep-cmd": [
    *     {
