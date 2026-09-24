@@ -6,6 +6,8 @@ privacy_msi_scan:
   ClearErrors
   EnumRegKey $R1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" $R0
   IfErrors privacy_msi_done
+  ; EnumRegKey returns an empty name, without setting the error flag, at the end.
+  StrCmp $R1 "" privacy_msi_done
   ReadRegStr $R2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$R1" "DisplayName"
   StrCmp $R2 "Sunshine" 0 privacy_msi_next
   ReadRegStr $R2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$R1" "Publisher"
