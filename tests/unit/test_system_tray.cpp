@@ -122,7 +122,7 @@ namespace {
     const auto &tray_data = system_tray::tray_data_for_testing();
     ASSERT_NE(tray_data.menu, nullptr);
 
-    EXPECT_STREQ(tray_data.menu[0].text, "Open Sunshine");
+    EXPECT_STREQ(tray_data.menu[0].text, "Open " SUNSHINE_DISPLAY_NAME);
     EXPECT_NE(tray_data.menu[0].cb, nullptr);
     EXPECT_STREQ(tray_data.menu[1].text, "-");
     EXPECT_EQ(tray_data.menu[1].cb, nullptr);
@@ -214,7 +214,7 @@ namespace {
    */
   #ifndef _WIN32
   void verify_state_transitions() {
-    verify_state(0, PROJECT_NAME, nullptr, nullptr, std::nullopt, false);
+    verify_state(0, SUNSHINE_DISPLAY_NAME, nullptr, nullptr, std::nullopt, false);
 
     system_tray::update_tray_playing("Moonlight");
     verify_state(2, "Streaming started for Moonlight", "Stream Started", "Streaming started for Moonlight", 2, false);
@@ -223,10 +223,10 @@ namespace {
     verify_state(3, "Streaming paused for Moonlight", "Stream Paused", "Streaming paused for Moonlight", 3, false);
 
     system_tray::update_tray_stopped("Moonlight");
-    verify_state(0, PROJECT_NAME, "Application Stopped", "Application Moonlight successfully stopped", 0, false);
+    verify_state(0, SUNSHINE_DISPLAY_NAME, "Application Stopped", "Application Moonlight successfully stopped", 0, false);
 
     system_tray::update_tray_require_pin();
-    verify_state(0, PROJECT_NAME, "Incoming Pairing Request", "Click here to complete the pairing process", 1, true);
+    verify_state(0, SUNSHINE_DISPLAY_NAME, "Incoming Pairing Request", "Click here to complete the pairing process", 1, true);
   }
   #endif
 }  // namespace
@@ -305,7 +305,7 @@ TEST_F(SystemTrayTest, UpdatesAreIgnoredBeforeInitialization) {
 
   const auto &tray_data = system_tray::tray_data_for_testing();
   EXPECT_STREQ(tray_data.icon, tray_data.allIconPaths[0]);
-  EXPECT_STREQ(tray_data.tooltip, PROJECT_NAME);
+  EXPECT_STREQ(tray_data.tooltip, SUNSHINE_DISPLAY_NAME);
   EXPECT_EQ(tray_data.notification_title, nullptr);
   EXPECT_EQ(tray_data.notification_text, nullptr);
   EXPECT_EQ(tray_data.notification_icon, nullptr);
@@ -628,7 +628,7 @@ TEST_F(SystemTrayVisualTest, CapturesIconTooltipNotificationsAndMenu) {
   }
 
   verify_menu();
-  verify_state(0, PROJECT_NAME, nullptr, nullptr, std::nullopt, false);
+  verify_state(0, SUNSHINE_DISPLAY_NAME, nullptr, nullptr, std::nullopt, false);
   EXPECT_TRUE(screenshot::capture("sunshine_tray_initial"));
 
   const int tooltip_position_result = tray_position_mouse_over_icon();
@@ -653,10 +653,10 @@ TEST_F(SystemTrayVisualTest, CapturesIconTooltipNotificationsAndMenu) {
   verify_state(3, "Streaming paused for Moonlight", "Stream Paused", "Streaming paused for Moonlight", 3, false);
   capture_notification("sunshine_tray_paused");
   system_tray::update_tray_stopped("Moonlight");
-  verify_state(0, PROJECT_NAME, "Application Stopped", "Application Moonlight successfully stopped", 0, false);
+  verify_state(0, SUNSHINE_DISPLAY_NAME, "Application Stopped", "Application Moonlight successfully stopped", 0, false);
   capture_notification("sunshine_tray_stopped");
   system_tray::update_tray_require_pin();
-  verify_state(0, PROJECT_NAME, "Incoming Pairing Request", "Click here to complete the pairing process", 1, true);
+  verify_state(0, SUNSHINE_DISPLAY_NAME, "Incoming Pairing Request", "Click here to complete the pairing process", 1, true);
   capture_notification("sunshine_tray_pairing_request");
 
   int menu_position_result = -1;

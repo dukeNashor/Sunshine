@@ -40,10 +40,15 @@ else {
     }
 }
 
-let header = fs.readFileSync(resolve(assetsSrcPath, "template_header.html"))
+const displayName = process.env.SUNSHINE_DISPLAY_NAME || 'Sunshine Duke'
+let header = fs.readFileSync(resolve(assetsSrcPath, "template_header.html"), 'utf8')
+    .replace('__SUNSHINE_DISPLAY_NAME__', displayName)
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    define: {
+        __SUNSHINE_DISPLAY_NAME__: JSON.stringify(displayName),
+    },
     resolve: {
         alias: {
             vue: 'vue/dist/vue.esm-bundler.js'

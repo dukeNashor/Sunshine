@@ -2,8 +2,9 @@
   <div>
     <nav class="navbar navbar-expand-lg navbar-sunshine">
       <div class="container-fluid">
-        <a class="navbar-brand" href="./" title="Sunshine">
-          <img src="/images/logo-sunshine-45.png" height="45" alt="Sunshine">
+        <a class="navbar-brand" href="./" :title="displayName">
+          <img src="/images/logo-sunshine-45.png" height="45" :alt="displayName">
+          <span class="ms-2">{{ displayName }}</span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
                 aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -87,6 +88,9 @@ import ThemeToggle from './ThemeToggle.vue'
 import Notification from './Notification.vue'
 
 export default {
+  data() {
+    return { displayName: __SUNSHINE_DISPLAY_NAME__ }
+  },
   components: {
     ThemeToggle,
     Notification,

@@ -9,6 +9,9 @@ project(Sunshine VERSION 0.0.0
         DESCRIPTION "Self-hosted game stream host for Moonlight"
         HOMEPAGE_URL "https://app.lizardbyte.dev/Sunshine")
 
+# Keep the display brand separate from executable, service, and package identities.
+set(SUNSHINE_DISPLAY_NAME "Sunshine Duke" CACHE STRING "User-facing application name")
+
 # Minimum separately installed Virtual HID Driver version supported by this build.
 set(LIBVIRTUALHID_MINIMUM_VERSION "2026.914.1218.10")
 list(APPEND SUNSHINE_DEFINITIONS LIBVIRTUALHID_MINIMUM_VERSION="${LIBVIRTUALHID_MINIMUM_VERSION}")
